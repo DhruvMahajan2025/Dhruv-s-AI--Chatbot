@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Universal AI</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: 260px;
+  background: #f1f1f3;
+  border-right: 1px solid #ddd;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 10px;
+  color: black;
+}
+.logo::before { content: "🌸 "; }
+
+.new-chat {
+  background: #111;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+
+.chat-item {
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  flex: 1;
+  color: black;
+  transition: 0.25s;
+}
+
+.chat-item:hover {
+  background: #e4e4e7;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.chat-item.active {
+  background: #dcdce0;
+}
+
+.chat-row {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+}
+
+/* MAIN */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.main::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url('https://images.pexels.com/photos/257360/pexels-photo-257360.jpeg?cs=srgb&dl=bench-nature-rocks-257360.jpg&fm=jpg') center/cover no-repeat;
+  z-index: 0;
+}
+
+.header {
+  z-index: 1;
+  text-align: center;
+  font-size: 32px;
+  font-weight: 600;
+  padding: 20px;
+  color: white;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* CHAT */
+.container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  z-index: 1;
+}
+
+.chat-box {
+  max-width: 800px;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.message {
+  max-width: 70%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.user {
+  background: #111;
+  color: white;
+  align-self: flex-end;
+}
+
+.bot {
+  background: white;
+  border: 1px solid #ddd;
+  align-self: flex-start;
+}
+
+/* INPUT */
+.input-wrapper {
+  position: sticky;
+  bottom: 0;
+  padding: 16px;
+}
+
+.input-area {
+  max-width: 800px;
+  margin: auto;
+  display: flex;
+  align-items: center;
+  background: white;
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+}
+
+input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 16px;
+}
+
+/* BUTTONS */
+button {
+  background: #111;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  margin-right: 6px;
+  cursor: pointer;
+}
+
+/* MENU (FIXED POSITION) */
+.menu {
+  position: fixed; /* 🔥 FIX */
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  display: none;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+  z-index: 999;
+}
+.menu div {
+  padding: 8px;
+  cursor: pointer;
+}
+.menu div:hover {
+  background: #eee;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+  <div class="logo">Universal AI</div>
+  <button class="new-chat" onclick="newChat()">+ New Chat</button>
+  <div id="history"></div>
+</div>
+
+<div class="main">
+  <div class="header">Universal AI</div>
+
+  <div class="container">
+    <div id="chatBox" class="chat-box"></div>
+  </div>
+
+  <div class="input-wrapper">
+    <div class="input-area">
+
+      <button class="icon-btn" onclick="uploadFile()">📎</button>
+      <button class="icon-btn" onclick="startVoice()">🎤</button>
+
+      <input id="input" placeholder="Ask anything..." />
+
+      <button onclick="sendMessage()">Send</button>
+
+      <input type="file" id="fileInput" style="display:none" />
+
+    </div>
+  </div>
+</div>
+
+<script>
+let chatId = null;
+let isVoiceInput = false;
+
+const chatBox = document.getElementById("chatBox");
+const input = document.getElementById("input");
+const historyDiv = document.getElementById("history");
+
+/* CLOSE MENU */
+document.addEventListener("click", () => {
+  document.querySelectorAll(".menu").forEach(m => m.style.display = "none");
+});
+
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter") sendMessage();
+});
+
+function setActive(id) {
+  document.querySelectorAll(".chat-item").forEach(el => el.classList.remove("active"));
+  if (id) document.getElementById("chat-"+id)?.classList.add("active");
+}
+
+function newChat() {
+  chatId = null;
+  chatBox.innerHTML = "";
+  setActive(null);
+}
+
+async function sendMessage() {
+  const message = input.value.trim();
+  if (!message) return;
+
+  chatBox.innerHTML += `<div class="message user">${message}</div>`;
+  input.value = "";
+
+  const botDiv = document.createElement("div");
+  botDiv.className = "message bot";
+  botDiv.innerText = "Thinking...";
+  chatBox.appendChild(botDiv);
+
+  const res = await fetch("http://localhost:5000/chat", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ message, chatId })
+  });
+
+  const data = await res.json();
+
+  botDiv.innerText = data.reply;
+
+  if (isVoiceInput) {
+    speak(data.reply);
+    isVoiceInput = false;
+  }
+
+  chatId = data.chatId;
+
+  loadChats();
+  setActive(chatId);
+}
+
+/* LOAD CHATS */
+async function loadChats() {
+  const res = await fetch("http://localhost:5000/chats");
+  const chats = await res.json();
+
+  historyDiv.innerHTML = "";
+
+  chats.forEach(chat => {
+    const row = document.createElement("div");
+    row.className = "chat-row";
+
+    const div = document.createElement("div");
+    div.className = "chat-item";
+    div.id = "chat-" + chat._id;
+    div.innerText = chat.name || "New Chat";
+
+    div.onclick = () => {
+      loadChat(chat._id);
+      setActive(chat._id);
+    };
+
+    const menuBtn = document.createElement("span");
+    menuBtn.innerText = "⋮";
+    menuBtn.style.cursor = "pointer";
+
+    const menu = document.createElement("div");
+    menu.className = "menu";
+
+    const del = document.createElement("div");
+    del.innerText = "Delete";
+    del.style.color = "red";
+
+    del.onclick = async (e) => {
+      e.stopPropagation();
+      await fetch(`http://localhost:5000/chat/${chat._id}`, { method: "DELETE" });
+      loadChats();
+    };
+
+    menu.appendChild(del);
+
+    /* 🔥 POSITION FIX */
+    menuBtn.onclick = (e) => {
+      e.stopPropagation();
+
+      const rect = menuBtn.getBoundingClientRect();
+
+      document.querySelectorAll(".menu").forEach(m => m.style.display = "none");
+
+      menu.style.display = "block";
+      menu.style.top = rect.bottom + "px";
+      menu.style.left = rect.left + "px";
+    };
+
+    row.appendChild(div);
+    row.appendChild(menuBtn);
+    row.appendChild(menu);
+
+    historyDiv.appendChild(row);
+  });
+}
+
+/* LOAD CHAT */
+async function loadChat(id) {
+  chatId = id;
+
+  const res = await fetch(`http://localhost:5000/chat/${id}`);
+  const data = await res.json();
+
+  chatBox.innerHTML = "";
+
+  data.messages.forEach(m => {
+    chatBox.innerHTML += `<div class="message ${m.role}">${m.text}</div>`;
+  });
+
+  setActive(id);
+}
+
+/* FILE UPLOAD */
+function uploadFile() {
+  document.getElementById("fileInput").click();
+}
+
+document.getElementById("fileInput").addEventListener("change", function () {
+  const file = this.files[0];
+  if (!file) return;
+
+  const fileURL = URL.createObjectURL(file);
+
+  chatBox.innerHTML += `
+    <div class="message user">
+      <a href="${fileURL}" target="_blank" style="color:white;text-decoration:underline;">
+        📄 ${file.name}
+      </a>
+    </div>`;
+});
+
+/* VOICE */
+function startVoice() {
+  const recognition = new webkitSpeechRecognition();
+  recognition.lang = "en-US";
+
+  isVoiceInput = true;
+
+  recognition.start();
+
+  recognition.onresult = function(e) {
+    input.value = e.results[0][0].transcript;
+    sendMessage();
+  };
+}
+
+/* SPEAK */
+function speak(text) {
+  const speech = new SpeechSynthesisUtterance(text);
+  window.speechSynthesis.speak(speech);
+}
+
+loadChats();
+</script>
+
+</body>
+</html>
